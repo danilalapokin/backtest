@@ -5,7 +5,7 @@
 # Подкюлючение
 Скачайте bactester.py и выполните
 
-![Image alt](https://github.com/danilalapokin/backtest/tree/main/screen/Screenshot from 2022-05-16 23-00-42.png)
+![Image alt](https://github.com/danilalapokin/backtest/tree/main/screen/photo1.png)
 
 
 # Инициализация
