@@ -12,7 +12,7 @@
 Класс backtester инициализируется историческими данными. Надо передать массив из путей до папки, где лежит дата. Например, у меня это выглядит так
 
 
-photo2
+![Image alt](https://github.com/danilalapokin/backtest/tree/main/screen/photo2.png)
 
 # Запуск бэктеста
 Для запуска надо вызвать метод test(), в который передаются параметры
@@ -27,7 +27,7 @@ photo2
 
 * signal_files - массив путей до csv файлов с сигналами
 
-photo3
+![Image alt](https://github.com/danilalapokin/backtest/tree/main/screen/photo3.png)
 
 Возвращается информация о сделках:
 
@@ -47,14 +47,14 @@ photo3
 
 * График изменения депозита
 
-photo4
-photo5
-photo6
+![Image alt](https://github.com/danilalapokin/backtest/tree/main/screen/photo4.png)
+![Image alt](https://github.com/danilalapokin/backtest/tree/main/screen/photo5.png)
+![Image alt](https://github.com/danilalapokin/backtest/tree/main/screen/photo6.png)
 
 # multitest
 
 Добавлена возможность сравнивать графики депозитов у нескольких различных прогонов на одном графике.
 Надо запустить метод multitest с параметрами каждого теста, обернутых в массив. Пример ниже
 
-photo7
-photo8
+![Image alt](https://github.com/danilalapokin/backtest/tree/main/screen/photo7.png)
+![Image alt](https://github.com/danilalapokin/backtest/tree/main/screen/photo8.png)
