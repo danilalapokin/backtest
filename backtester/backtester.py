@@ -4,9 +4,8 @@ import time
 from datetime import datetime
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-%matplotlib inline 
 
-class Backtester:
+class backtester:
     """
     Backtester tests the model on historical data.
     """
