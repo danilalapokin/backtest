@@ -2,14 +2,21 @@ import numpy as np
 import pandas as pd
 import time
 from datetime import datetime
+from datetime import timedelta
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
-class backtester:
+class Backtester:
     """
     Backtester tests the model on historical data.
     """
-    def __init__(self, date_files):
+    def deltas(self, date):
+        if len(date) == 25:
+            hside = date[20:22]
+            mside = date[23:25]
+            return timedelta(hours=int(hside), minutes=int(mside))
+        return timedelta(hours=0)
+    def __init__(self, date_files, exchange='tradingview'):
         """
         date_file - path to historical data (.csv)
         
@@ -21,11 +28,20 @@ class backtester:
         self.date_low_arr   = np.array([])
         self.date_time_arr  = np.array([])
         for file in date_files:
-            date_csv = pd.read_csv(file, names=date_col_names)
-            self.date_high_arr  = np.concatenate([self.date_high_arr, np.array(date_csv['high'])])
-            self.date_low_arr   = np.concatenate([self.date_low_arr, np.array(date_csv['low'])])
-            self.date_time_arr  = np.concatenate([self.date_time_arr,
-                              np.array([datetime.fromtimestamp(date/1000) for date in date_csv['time']])])
+            if (exchange=='tradingview'):
+                self.date_csv = pd.read_csv(file)
+            else:
+                self.date_csv = pd.read_csv(file, names=date_col_names)
+            self.date_high_arr  = np.concatenate([self.date_high_arr, np.array(self.date_csv['high'])])
+            self.date_low_arr   = np.concatenate([self.date_low_arr, np.array(self.date_csv['low'])])
+            if (exchange=='tradingview'):
+                self.date_time_arr  = np.concatenate([self.date_time_arr, [
+                                  datetime.strptime(date[:10] + " " + date[11:19], '%Y-%m-%d %H:%M:%S')
+                                  - self.deltas(date)
+                                  for date in np.array(self.date_csv['time'])]])
+            else:
+                self.date_time_arr  = np.concatenate([self.date_time_arr,
+                              np.array([datetime.fromtimestamp(date/1000) for date in self.date_csv['time']])])
     def parse_signals(self, signal_files):
         signal_col_names = ['signal', 'type', 'price', 'sep1', 'sep2', 
                             'date_string', 'date_ymd','date_hms', 'sep3'] #sample type
@@ -37,7 +53,10 @@ class backtester:
             signal_signals_arr = np.concatenate([signal_signals_arr, np.array(signal_csv['signal'])])
             signal_price_arr   = np.concatenate([signal_price_arr, np.array(signal_csv['price'])])
             date_ymd_arr       = np.array(signal_csv['date_ymd'])
-            date_hms_arr       = np.array(signal_csv['date_hms'])
+            date_hms_arr       = []
+            for i in range(len(signal_csv['date_hms'])):
+                date_hms_arr.append(signal_csv['date_hms'][i][:8])
+            date_hms_arr       = np.array(date_hms_arr)
             signal_time_arr    = np.concatenate([signal_time_arr,
                                  np.array([datetime.strptime(date, '%Y-%m-%d %H:%M:%S') 
                                  for date in date_ymd_arr + ' ' + date_hms_arr])])
@@ -46,7 +65,7 @@ class backtester:
         
     
     def backtesting(self, depo, depo_rate, stop_loss, leverage,
-                    signal_signals_arr, signal_price_arr, signal_time_arr):
+                    signal_signals_arr, signal_price_arr, signal_time_arr, volume="const"):
         assert len(self.date_time_arr) != 0, "Empty historical data"
         #info
         date_time_arr = self.date_time_arr
@@ -69,6 +88,8 @@ class backtester:
         pnl_time = [start_time]
         pnl_depo = [self.margin]
         uk_signal = 0
+        self.volume_trade = start_margin * depo_rate / 100
+        self.volume = volume
 
         #model info
         max_drawdown   = [0, start_time]
@@ -87,7 +108,11 @@ class backtester:
                 self.trades_profit += 1
             pnl_pnl.append(pnl_pnl[-1] + per_profit)
             pnl_time.append(date_time_arr[uk_date])
-            volume = depo_rate / 100 * self.margin * leverage
+            if self.volume != "const":
+                self.volume_trade = depo_rate / 100 * self.margin
+            else:
+                self.volume_trade = min(self.volume_trade, self.margin)
+            volume = self.volume_trade * leverage
             profit = volume * per_profit
             self.margin += profit
             pnl_depo.append(self.margin)
@@ -161,7 +186,7 @@ class backtester:
 
         
     
-    def test(self, name="Model", depo=1000, depo_rate=10, stop_loss=5, leverage=1, signal_files=[]):
+    def test(self, name="Model", depo=1000, depo_rate=10, stop_loss=5, leverage=1, signal_files=[], volume="const"):
         """
         name      - name model (string)
         depo      - volume deposit
@@ -169,16 +194,17 @@ class backtester:
         stop_loss - stop loss (%)
         leverage  - leverage 
         signals   - path to singals data (.csv)
+        volume    - dynamic or const volume of trade (default const)
         """
         signal_signals_arr, signal_price_arr, signal_time_arr = self.parse_signals(signal_files)
         
         start_margin, end_margin,  min_margin_all, drawndowns, average_pnl, pnl_pnl, pnl_time, pnl_depo = self.backtesting(depo, depo_rate, stop_loss, leverage, 
-                         signal_signals_arr, signal_price_arr, signal_time_arr)
+                         signal_signals_arr, signal_price_arr, signal_time_arr, volume=volume)
         
         print(f"Name: {name}")
         print(f"Options. Leverage: {leverage}, stop_loss: {stop_loss}%, depo rate: {depo_rate}%\n------")
         print(f"Start depo: {start_margin}, Finish depo: {round(end_margin, 2)}")
-        print(f"Profit: {round(end_margin - start_margin, 2)} ({round(end_margin / start_margin, 2)}%), Average profit: {round(average_pnl, 2)} on trade")
+        print(f"Profit: {round(end_margin - start_margin, 2)} ({round(end_margin / start_margin * 100, 2)}%), Average profit: {round(average_pnl, 2)} on trade")
         print(f"Max drawndown depo: {round(min_margin_all[0], 2)} {min_margin_all[1]}")
         print(f"Max drawndown trade: {round(np.min(drawndowns), 2)}%, average drawndown trade: {round(np.mean(drawndowns), 2)}%,")
         print(f"Amount trades: {self.trades_profit + self.trades_loss}, profit: {self.trades_profit}, loss: {self.trades_loss}")
